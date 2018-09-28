@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Three.js RenderTarget</title>
+  <style>
+    body {
+      margin: 0;
+    }
+    canvas {
+      display: block;
+    }
+    #preview {
+      position: absolute;
+      top: 0;
+      left: 0;
+      border: 1px solid #eee;
+
+      width: 150px;
+      height: 150px;
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="preview" width="300" height="300"></canvas>
+  
+  <script src="//unpkg.com/three@0.97.0/build/three.min.js"></script>
+  <script src="//unpkg.com/three@0.97.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="//unpkg.com/three@0.97.0/examples/js/libs/stats.min.js"></script>
+
+  <script>
+    const Camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 1000 );
+    Camera.position.x = 2;
+    Camera.position.y = 2;
+    Camera.position.z = 2;
+    Camera.lookAt(0, 0, 0);
+    const controls = new THREE.OrbitControls( Camera );
+
+
+    const RTScene = new THREE.Scene();
+
+    const RTLight = new THREE.DirectionalLight( 0xffffff, 1.5 );
+    RTLight.position.set( 0, 1, 1 ).normalize();
+    RTScene.add(RTLight);
+
+    const geometryTorus = new THREE.TorusGeometry( 10, 3, 16, 100 );
+    const materialTorus = new THREE.LineBasicMaterial( {color: 0xff0000} );
+    const Torus = new THREE.Mesh( geometryTorus, materialTorus );
+    Torus.scale.set( 0.05, 0.05, 0.05 );
+    RTScene.add(Torus);
+
+    const RT_SIZE = 300;
+    const RenderTarget = new THREE.WebGLRenderTarget( RT_SIZE, RT_SIZE);
+
+
+    const Scene = new THREE.Scene();
+
+    const AmbientLight = new THREE.AmbientLight( 0xffffff, 1.5 );
+    Scene.add(AmbientLight);
+
+    const Light = new THREE.DirectionalLight( 0xffffff, 1.5 );
+    Light.position.set( 0, 1, 1 ).normalize();
+    Scene.add(Light);
+
+    const geometryBox = new THREE.BoxBufferGeometry( 1, 1, 1 );
+    const materialBox = new THREE.MeshStandardMaterial( { color: 0xff9300, map: RenderTarget.texture } );
+    const Box = new THREE.Mesh( geometryBox, materialBox );
+    Scene.add(Box);
+    Scene.add(AmbientLight);
+
+    Scene.add(new THREE.AxesHelper(3));
+
+
+    const Renderer = new THREE.WebGLRenderer( { antialias: true } );
+    Renderer.setClearColor(0xffffff, 1.0);
+    Renderer.setPixelRatio( window.devicePixelRatio );
+    Renderer.setSize( window.innerWidth, window.innerHeight );
+    document.body.appendChild( Renderer.domElement );
+
+    const preview = document.getElementById('preview');
+    const ctx = preview.getContext('2d');
+    const buffer = new Uint8Array(4 * RT_SIZE * RT_SIZE);
+    const clamped = new Uint8ClampedArray(buffer.buffer);
+    function animation(dt) {
+      Renderer.clear();
+
+      stats.begin();
+      controls.update();
+
+      Box.rotation.y += 0.01;
+      Torus.rotation.y += 0.01;
+
+      Renderer.render(RTScene, Camera, RenderTarget);
+      Renderer.render(Scene, Camera);
+
+      Renderer.readRenderTargetPixels(RenderTarget, 0, 0, RT_SIZE, RT_SIZE, buffer);
+      const imageData = new ImageData(clamped, RT_SIZE, RT_SIZE);
+      ctx.putImageData(imageData, 0, 0);
+
+      stats.end();
+      requestAnimationFrame(animation);
+    }
+
+    const stats = new Stats();
+    stats.showPanel( 0 ); // 0: fps, 1: ms, 2: mb, 3+: custom
+    stats.dom.style.left = null;
+    stats.dom.style.right = '0px';
+    document.body.appendChild( stats.dom );
+    animation();
+  </script>
+
+</body>
+</html>
